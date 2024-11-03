@@ -1,6 +1,10 @@
 package com.example.easyzinger
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -16,10 +20,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
 import com.example.easyzinger.ui.theme.EasyZingerTheme
 
 class MainActivity : ComponentActivity() {
-    private lateinit var overlayPermissionLauncher: ActivityResultLauncher<Intent>
+    private lateinit var overlayPermissionIntentLauncher: ActivityResultLauncher<Intent>
+    private lateinit var permissionLauncher: ActivityResultLauncher<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,49 +34,69 @@ class MainActivity : ComponentActivity() {
             EasyZingerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Greeting(
-                        name = "Android",
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
             }
         }
 
-        // Initialize the ActivityResultLauncher
-        overlayPermissionLauncher = registerForActivityResult(
+        createNotificationChannel()
+
+        overlayPermissionIntentLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
-            if (result.resultCode == RESULT_OK) {
-                // Permission granted, start the overlay service
-                startOverlayService()
-            } else {
-                // Handle the case where permission was not granted
-            }
+            checkPermissions()
         }
 
-        // Check and request permission
-        checkOverlayPermission()
+        permissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { result ->
+            checkPermissions()
+        }
+
+        checkPermissions()
     }
 
-    private fun checkOverlayPermission() {
-        if (!Settings.canDrawOverlays(this)) {
+    private fun checkPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+        else if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+        {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        else if (!Settings.canDrawOverlays(this)) {
             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName"))
-            overlayPermissionLauncher.launch(intent)
+            overlayPermissionIntentLauncher.launch(intent)
         } else {
             startOverlayService()
         }
     }
 
+    private fun createNotificationChannel() {
+        val channel = NotificationChannel(
+            "easy_zinger_service_channel",
+            "Easy Zinger Service",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Channel for Easy Zinger service"
+        }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
+    }
+
     private fun startOverlayService() {
         val intent = Intent(this, EZService::class.java)
         startService(intent)
+        finish()
     }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
+fun Greeting(modifier: Modifier = Modifier) {
     Text(
-        text = "Hello $name!",
+        text = "Missing required permissions: require access to microphone, display as overlay, and post notifications",
         modifier = modifier
     )
 }
@@ -79,6 +105,6 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun GreetingPreview() {
     EasyZingerTheme {
-        Greeting("Android")
+        Greeting()
     }
 }
