@@ -1,18 +1,41 @@
 package com.example.easyzinger
 
+import android.Manifest
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.PixelFormat
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.AudioRecord.RECORDSTATE_RECORDING
+import android.media.MediaRecorder
 import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.ViewModelProvider
+import kotlin.math.ln
+import kotlin.math.roundToInt
+import be.tarsos.dsp.AudioDispatcher
+import be.tarsos.dsp.AudioEvent
+import be.tarsos.dsp.io.TarsosDSPAudioFormat
+import be.tarsos.dsp.io.UniversalAudioInputStream
+import be.tarsos.dsp.pitch.PitchProcessor
+import be.tarsos.dsp.pitch.PitchDetectionHandler
+import be.tarsos.dsp.pitch.PitchDetectionResult
+import java.io.PipedInputStream
+import java.io.PipedOutputStream
+
 
 class EZService : Service() {
 
+    private lateinit var ezViewModel: EZViewModel
     private lateinit var windowManager: WindowManager
     private lateinit var ezView: EZView
+    private lateinit var dispatcher: AudioDispatcher
+    private lateinit var audioRecord: AudioRecord
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -26,6 +49,9 @@ class EZService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        ezViewModel = ViewModelProvider.AndroidViewModelFactory.getInstance(application).create(
+            EZViewModel::class.java)
 
         val pendingIntent = createStopServiceIntent()
 
@@ -43,13 +69,14 @@ class EZService : Service() {
 
         // Inflate the overlay layout
         ezView = EZView(this, null)
+        ezView.setViewModel(ezViewModel)
 
         // Set the layout parameters for the overlay
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         )
 
@@ -59,6 +86,71 @@ class EZService : Service() {
 
         // Add the view to the window
         windowManager.addView(ezView, params)
+
+        val sampleRate = 44100
+        val bufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        )
+        {
+            stopSelf()
+        }
+
+        audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.MIC,
+            sampleRate,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+            bufferSize
+        )
+
+        val buffer = ByteArray(bufferSize)
+        val pipedInputStream = PipedInputStream()
+        val pipedOutputStream = PipedOutputStream(pipedInputStream)
+
+        dispatcher = AudioDispatcher(UniversalAudioInputStream(pipedInputStream,
+            TarsosDSPAudioFormat(sampleRate.toFloat(), 16, 1, true, false)), bufferSize, bufferSize / 2)
+
+        dispatcher.addAudioProcessor(PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, sampleRate.toFloat(), bufferSize, object : PitchDetectionHandler {
+            override fun handlePitch(
+                pitchDetectionResult: PitchDetectionResult?,
+                audioEvent: AudioEvent?
+            ) {
+                if (pitchDetectionResult == null) {
+                    return
+                }
+                if (pitchDetectionResult.probability > 0.8) { // Check if the pitch detection is reliable
+                    val note = frequencyToNote(pitchDetectionResult.pitch)
+                    ezViewModel.note.postValue(note)
+                }
+            }
+        }))
+
+        Thread(dispatcher, "Audio dispatching").start()
+
+        audioRecord.startRecording()
+
+        Thread {
+            while (audioRecord.recordingState == RECORDSTATE_RECORDING) {
+                val read = audioRecord.read(buffer, 0, buffer.size)
+                if (read > 0) {
+                    pipedOutputStream.write(buffer, 0, read)
+                }
+            }
+            audioRecord.release()
+            pipedOutputStream.close()
+        }.start()
+    }
+
+    // Function to convert frequency to musical note
+    fun frequencyToNote(frequency: Float): String {
+        val noteNames = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        val a4 = 440.0 // Frequency of A4
+        val noteNumber = (12 * ln(frequency / a4) / ln(2.0)).roundToInt().toInt() + 69
+        return noteNames[noteNumber % 12] + (noteNumber / 12 - 1) // Octave
     }
 
     private fun createStopServiceIntent(): PendingIntent {
@@ -73,6 +165,8 @@ class EZService : Service() {
         if (::ezView.isInitialized) {
             windowManager.removeView(ezView)
         }
+        audioRecord.stop()
+        dispatcher.stop()
     }
 
     override fun onBind(intent: Intent?): IBinder? {

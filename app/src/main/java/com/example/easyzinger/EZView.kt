@@ -9,9 +9,17 @@ import android.view.View
 
 class EZView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
-    private var text: String = "A" // Default text
-    private var textSize: Float = 100f // Default text size
-    private var textColor: Int = Color.WHITE // Default text color
+    private var note: String = "-"
+    private var textSize: Float = 100f
+    private var textColor: Int = Color.GREEN
+
+    fun setViewModel(viewModel: EZViewModel) {
+        // Observe LiveData
+        viewModel.note.observeForever { newNote ->
+            note = newNote
+            invalidate()
+        }
+    }
 
     val paint = Paint().apply {
         color = textColor
@@ -27,10 +35,6 @@ class EZView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         val y = (height / 2f - (paint.descent() + paint.ascent()) / 2)
 
         // Draw the text
-        canvas.drawText(text, x, y, paint)
-
-        // Draw the line underneath the text
-        val lineY = y + (paint.descent() - paint.ascent()) / 2 + 10 // Adjust position as needed
-        canvas.drawLine(0f, lineY, width.toFloat(), lineY, paint.apply { strokeWidth = 5f }) // Line thickness
+        canvas.drawText(note, x, y, paint)
     }
 }
