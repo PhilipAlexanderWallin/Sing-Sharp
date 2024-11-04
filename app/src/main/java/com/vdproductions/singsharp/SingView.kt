@@ -1,4 +1,4 @@
-package com.example.easyzinger
+package com.vdproductions.singsharp
 
 import android.content.Context
 import android.graphics.Canvas
@@ -7,13 +7,13 @@ import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.View
 
-class EZView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
+class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     private var note: String = "-"
     private var textSize: Float = 100f
     private var textColor: Int = Color.GREEN
 
-    fun setViewModel(viewModel: EZViewModel) {
+    fun setViewModel(viewModel: SingViewModel) {
         // Observe LiveData
         viewModel.note.observeForever { newNote ->
             note = newNote
@@ -23,7 +23,7 @@ class EZView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     val paint = Paint().apply {
         color = textColor
-        textSize = this@EZView.textSize
+        textSize = this@SingView.textSize
         textAlign = Paint.Align.CENTER
     }
 

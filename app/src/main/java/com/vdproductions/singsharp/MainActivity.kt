@@ -1,4 +1,4 @@
-package com.example.easyzinger
+package com.vdproductions.singsharp
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -21,7 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
-import com.example.easyzinger.ui.theme.EasyZingerTheme
+import com.vdproductions.singsharp.ui.theme.SingSharpTheme
 
 class MainActivity : ComponentActivity() {
     private lateinit var overlayPermissionIntentLauncher: ActivityResultLauncher<Intent>
@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            EasyZingerTheme {
+            SingSharpTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Greeting(
                         modifier = Modifier.padding(innerPadding)
@@ -76,18 +76,18 @@ class MainActivity : ComponentActivity() {
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
-            "easy_zinger_service_channel",
-            "Easy Zinger Service",
+            "sing_sharp_service_channel",
+            "Sing Sharp service",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Channel for Easy Zinger service"
+            description = "Channel for Sing Sharp service"
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
     }
 
     private fun startOverlayService() {
-        val intent = Intent(this, EZService::class.java)
+        val intent = Intent(this, SingService::class.java)
         startService(intent)
         finish()
     }
@@ -104,7 +104,7 @@ fun Greeting(modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    EasyZingerTheme {
+    SingSharpTheme {
         Greeting()
     }
 }

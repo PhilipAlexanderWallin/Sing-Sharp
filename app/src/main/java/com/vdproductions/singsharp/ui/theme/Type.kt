@@ -1,4 +1,4 @@
-package com.example.easyzinger.ui.theme
+package com.vdproductions.singsharp.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

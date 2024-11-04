@@ -1,8 +1,8 @@
-package com.example.easyzinger
+package com.vdproductions.singsharp
 
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 
-class EZViewModel : ViewModel() {
+class SingViewModel : ViewModel() {
     val note = MutableLiveData<String>()
 }

@@ -1,4 +1,4 @@
-package com.example.easyzinger
+package com.vdproductions.singsharp
 
 import android.Manifest
 import android.app.PendingIntent
@@ -29,11 +29,11 @@ import java.io.PipedInputStream
 import java.io.PipedOutputStream
 
 
-class EZService : Service() {
+class SingService : Service() {
 
-    private lateinit var ezViewModel: EZViewModel
+    private lateinit var singViewModel: SingViewModel
     private lateinit var windowManager: WindowManager
-    private lateinit var ezView: EZView
+    private lateinit var singView: SingView
     private lateinit var dispatcher: AudioDispatcher
     private lateinit var audioRecord: AudioRecord
 
@@ -50,13 +50,13 @@ class EZService : Service() {
     override fun onCreate() {
         super.onCreate()
 
-        ezViewModel = ViewModelProvider.AndroidViewModelFactory.getInstance(application).create(
-            EZViewModel::class.java)
+        singViewModel = ViewModelProvider.AndroidViewModelFactory.getInstance(application).create(
+            SingViewModel::class.java)
 
         val pendingIntent = createStopServiceIntent()
 
-        val notification = NotificationCompat.Builder(this, "easy_zinger_service_channel")
-            .setContentTitle("Easy Zinger running")
+        val notification = NotificationCompat.Builder(this, "sing_sharp_service_channel")
+            .setContentTitle("Sing Sharp running")
             .setContentText("Tap notification to stop")
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -68,8 +68,8 @@ class EZService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
         // Inflate the overlay layout
-        ezView = EZView(this, null)
-        ezView.setViewModel(ezViewModel)
+        singView = SingView(this, null)
+        singView.setViewModel(singViewModel)
 
         // Set the layout parameters for the overlay
         val params = WindowManager.LayoutParams(
@@ -85,7 +85,7 @@ class EZService : Service() {
         params.y = 100 // Change this value to set the initial position
 
         // Add the view to the window
-        windowManager.addView(ezView, params)
+        windowManager.addView(singView, params)
 
         val sampleRate = 44100
         val bufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
@@ -124,7 +124,7 @@ class EZService : Service() {
                 }
                 if (pitchDetectionResult.probability > 0.8) { // Check if the pitch detection is reliable
                     val note = frequencyToNote(pitchDetectionResult.pitch)
-                    ezViewModel.note.postValue(note)
+                    singViewModel.note.postValue(note)
                 }
             }
         }))
@@ -154,7 +154,7 @@ class EZService : Service() {
     }
 
     private fun createStopServiceIntent(): PendingIntent {
-        val stopIntent = Intent(this, EZService::class.java).apply {
+        val stopIntent = Intent(this, SingService::class.java).apply {
             action = "STOP_SERVICE"
         }
         return PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -162,8 +162,8 @@ class EZService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (::ezView.isInitialized) {
-            windowManager.removeView(ezView)
+        if (::singView.isInitialized) {
+            windowManager.removeView(singView)
         }
         audioRecord.stop()
         dispatcher.stop()

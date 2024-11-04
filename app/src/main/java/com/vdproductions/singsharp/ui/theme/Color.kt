@@ -1,4 +1,4 @@
-package com.example.easyzinger.ui.theme
+package com.vdproductions.singsharp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
