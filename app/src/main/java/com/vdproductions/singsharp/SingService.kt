@@ -16,8 +16,6 @@ import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.ViewModelProvider
-import kotlin.math.ln
-import kotlin.math.roundToInt
 import be.tarsos.dsp.AudioDispatcher
 import be.tarsos.dsp.AudioEvent
 import be.tarsos.dsp.io.TarsosDSPAudioFormat
@@ -27,6 +25,11 @@ import be.tarsos.dsp.pitch.PitchDetectionHandler
 import be.tarsos.dsp.pitch.PitchDetectionResult
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
+import kotlin.math.ln
+import kotlin.math.log2
+import kotlin.math.pow
+import kotlin.math.round
+import kotlin.math.roundToInt
 
 
 class SingService : Service() {
@@ -73,8 +76,8 @@ class SingService : Service() {
 
         // Set the layout parameters for the overlay
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
@@ -120,11 +123,11 @@ class SingService : Service() {
                 audioEvent: AudioEvent?
             ) {
                 if (pitchDetectionResult == null) {
+                    singViewModel.note.postValue(null)
                     return
                 }
                 if (pitchDetectionResult.probability > 0.8) { // Check if the pitch detection is reliable
-                    val note = frequencyToNote(pitchDetectionResult.pitch)
-                    singViewModel.note.postValue(note)
+                    singViewModel.note.postValue(frequencyToNote(pitchDetectionResult.pitch))
                 }
             }
         }))
@@ -143,14 +146,6 @@ class SingService : Service() {
             audioRecord.release()
             pipedOutputStream.close()
         }.start()
-    }
-
-    // Function to convert frequency to musical note
-    fun frequencyToNote(frequency: Float): String {
-        val noteNames = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
-        val a4 = 440.0 // Frequency of A4
-        val noteNumber = (12 * ln(frequency / a4) / ln(2.0)).roundToInt().toInt() + 69
-        return noteNames[noteNumber % 12] + (noteNumber / 12 - 1) // Octave
     }
 
     private fun createStopServiceIntent(): PendingIntent {
@@ -172,4 +167,30 @@ class SingService : Service() {
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
+}
+
+// Twelfth root of 2 (constant for equal temperament)
+val SEMITONE_RATIO = 2.0.pow(1.0 / 12.0)
+
+// Function to convert frequency to musical note
+fun frequencyToNote(frequency: Float): Triple<Int, Int, Float> {
+    val a4 = 440.0 // Frequency of A4
+    val noteNumber = (12 * ln(frequency / a4) / ln(2.0)).roundToInt().toInt() + 69
+    val noteIndex = noteNumber % 12
+    val octave = (noteNumber / 12 - 1)
+
+    // Calculate the number of semitones from A4
+    val semitonesFromA4 = 12 * log2(frequency / a4)
+
+    // Round to the nearest whole semitone
+    val nearestSemitone = round(semitonesFromA4)
+
+    // Frequency of the nearest note
+    val targetFrequency = a4 * SEMITONE_RATIO.pow(nearestSemitone)
+
+    // Calculate the offset in cents
+    val centsOffset = 1200 * log2(frequency / targetFrequency).toFloat()
+
+    // Return the note index, the octave, and the cents offset
+    return Triple(noteIndex, octave, centsOffset)
 }
