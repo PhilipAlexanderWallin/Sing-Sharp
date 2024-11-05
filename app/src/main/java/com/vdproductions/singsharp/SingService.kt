@@ -31,7 +31,6 @@ import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.roundToInt
 
-
 class SingService : Service() {
 
     private lateinit var singViewModel: SingViewModel
@@ -171,16 +170,29 @@ class SingService : Service() {
 
 // Twelfth root of 2 (constant for equal temperament)
 val SEMITONE_RATIO = 2.0.pow(1.0 / 12.0)
+val pitchHistory = mutableListOf<Float>()
+const val pitchWindowSize = 5
 
 // Function to convert frequency to musical note
-fun frequencyToNote(frequency: Float): Triple<Int, Int, Float> {
+fun frequencyToNote(pitch: Float): Triple<Int, Int, Float> {
+    // Add the new pitch value to the history
+    pitchHistory.add(pitch)
+
+    // Remove the oldest value if the history exceeds the window size
+    if (pitchHistory.size > pitchWindowSize) {
+        pitchHistory.removeAt(0)
+    }
+
+    // Calculate the average of the recent pitch values
+    val averagePitch = pitchHistory.average().toFloat()
+
     val a4 = 440.0 // Frequency of A4
-    val noteNumber = (12 * ln(frequency / a4) / ln(2.0)).roundToInt().toInt() + 69
+    val noteNumber = (12 * ln(averagePitch / a4) / ln(2.0)).roundToInt().toInt() + 69
     val noteIndex = noteNumber % 12
     val octave = (noteNumber / 12 - 1)
 
     // Calculate the number of semitones from A4
-    val semitonesFromA4 = 12 * log2(frequency / a4)
+    val semitonesFromA4 = 12 * log2(averagePitch / a4)
 
     // Round to the nearest whole semitone
     val nearestSemitone = round(semitonesFromA4)
@@ -189,7 +201,7 @@ fun frequencyToNote(frequency: Float): Triple<Int, Int, Float> {
     val targetFrequency = a4 * SEMITONE_RATIO.pow(nearestSemitone)
 
     // Calculate the offset in cents
-    val centsOffset = 1200 * log2(frequency / targetFrequency).toFloat()
+    val centsOffset = 1200 * log2(averagePitch / targetFrequency).toFloat()
 
     // Return the note index, the octave, and the cents offset
     return Triple(noteIndex, octave, centsOffset)

@@ -10,10 +10,11 @@ import android.view.View
 
 class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
+    private val sideNotes = 3
     private var note: Triple<Int, Int, Float>? = null
-    private var textSize: Float = 250f
-    private var fillColor: Int = Color.GREEN
-    private var strokeColor: Int = Color.BLACK
+    private val textSize: Float = 250f
+    private val fillColor: Int = Color.GREEN
+    private val strokeColor: Int = Color.BLACK
     private val noteNames = arrayOf("C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "A", "B")
     private val noteSigns = arrayOf("", "#", "", "#", "", "", "#", "", "#", "", "#", "")
 
@@ -29,13 +30,14 @@ class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         color = fillColor
         textSize = this@SingView.textSize
         textAlign = Paint.Align.CENTER
+        strokeWidth = this@SingView.textSize / 40
     }
 
     val strokePaint = Paint().apply {
         color = strokeColor
         textSize = fillPaint.textSize
         textAlign = fillPaint.textAlign
-        strokeWidth = fillPaint.textSize / 20
+        strokeWidth = fillPaint.textSize / 30
         style = Paint.Style.STROKE
     }
 
@@ -70,9 +72,9 @@ class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         val x = getCenterX()
         val y = getCenterY()
         val arrowPath = Path()
-        arrowPath.moveTo(x, y + lineOffsetY)
-        arrowPath.lineTo(x - arrowWidth, y + lineHeight + lineOffsetY)
-        arrowPath.lineTo(x + arrowWidth, y + lineHeight + lineOffsetY)
+        arrowPath.moveTo(x, y + lineOffsetY + lineHeight / 2)
+        arrowPath.lineTo(x - arrowWidth, y + lineHeight * 1.5f + lineOffsetY)
+        arrowPath.lineTo(x + arrowWidth, y + lineHeight * 1.5f + lineOffsetY)
         arrowPath.close()
         return arrowPath
     }
@@ -89,17 +91,13 @@ class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         val y = getCenterY()
 
         note?.let { (noteIndex, octave, centsOffset) ->
-            val noteOffset = (notesDistance * centsOffset) / -50f
+            val noteOffset = (notesDistance * centsOffset) / -100f
 
-            val previousNoteIndex = if (noteIndex == 0) 11 else noteIndex - 1
-            val previousOctave = if (noteIndex == 0) octave - 1 else octave
-            drawNote(canvas, previousNoteIndex, previousOctave, x - notesDistance + noteOffset, y)
-
-            drawNote(canvas, noteIndex, octave, x + noteOffset, y)
-
-            val nextNoteIndex = if (noteIndex == 11) 0 else noteIndex + 1
-            val nextOctave = if (noteIndex == 11) octave + 1 else octave
-            drawNote(canvas, nextNoteIndex, nextOctave, x + notesDistance + noteOffset, y)
+            for (indexOffset in -sideNotes..sideNotes) {
+                val currentNoteIndex = (noteIndex + indexOffset + 12) % 12
+                var currentOctave = if (noteIndex + indexOffset < 0) octave - 1 else if (noteIndex + indexOffset > 11) octave + 1 else octave
+                drawNote(canvas, currentNoteIndex, currentOctave, x + notesDistance * indexOffset + noteOffset, y)
+            }
 
             val arrowPath = createArrowPath()
             canvas.drawPath(arrowPath, strokePaint)
@@ -109,9 +107,16 @@ class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     fun drawNote(canvas: Canvas, noteIndex: Int, octave: Int, x: Float, y: Float) {
         drawOutlinedText(canvas, noteNames[noteIndex], x, y, fillPaint, strokePaint)
-        drawOutlinedText(canvas, noteSigns[noteIndex], x + strokePaint.textSize * 0.4f, y - strokePaint.textSize * 0.4f, subAndSuperScriptFillPaint, subAndSuperScriptStrokePaint)
-        drawOutlinedText(canvas, octave.toString(), x + strokePaint.textSize * 0.4f, y + strokePaint.textSize * 0.1f, subAndSuperScriptFillPaint, subAndSuperScriptStrokePaint)
+        drawOutlinedText(canvas, noteSigns[noteIndex], x + strokePaint.textSize * 0.5f, y - strokePaint.textSize * 0.4f, subAndSuperScriptFillPaint, subAndSuperScriptStrokePaint)
+        drawOutlinedText(canvas, octave.toString(), x + strokePaint.textSize * 0.5f, y + strokePaint.textSize * 0.1f, subAndSuperScriptFillPaint, subAndSuperScriptStrokePaint)
+
         drawOutlineLine(canvas, x, y + lineOffsetY, x, y + lineOffsetY + lineHeight, fillPaint, strokePaint)
+
+        for(lineIndex in 1..9)
+        {
+            val xOffset = notesDistance / 10 * lineIndex
+            drawOutlineLine(canvas, x + xOffset, y + lineOffsetY + lineHeight / 2, x + xOffset, y + lineOffsetY + lineHeight, fillPaint, strokePaint)
+        }
     }
 
     fun drawOutlinedText(canvas: Canvas, text: String, x: Float, y: Float, fillPaint: Paint, strokePaint: Paint) {
