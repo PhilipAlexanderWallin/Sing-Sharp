@@ -8,56 +8,111 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.vdproductions.singsharp.ui.theme.SingSharpTheme
 
 class MainActivity : ComponentActivity() {
     private lateinit var overlayPermissionIntentLauncher: ActivityResultLauncher<Intent>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
+    private var extraInstructions = false
+
+    val permissions = arrayOf(
+        Manifest.permission.RECORD_AUDIO,
+        Manifest.permission.POST_NOTIFICATIONS
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            SingSharpTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
-            }
-        }
 
         createNotificationChannel()
 
         overlayPermissionIntentLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
-            checkPermissions()
+            Log.d("temp", "a")
+            if (!hasPermissions()) {
+                Log.d("temp", "b")
+                extraInstructions = true
+            }
+            else {
+                startService()
+            }
         }
 
         permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
-        ) { result ->
-            checkPermissions()
+        ) { isGranted ->
+            if (isGranted) {
+                tryStartService()
+            }
         }
 
-        checkPermissions()
+        if (!hasPermissions())
+        {
+            enableEdgeToEdge()
+            setContent {
+                SingSharpTheme {
+                    ConsentScreen(
+                        ::needExtraInstructions,
+                        ::tryStartService,
+                        ::hasPermissions
+                    )
+                }
+            }
+        } else {
+            startService()
+        }
     }
 
-    private fun checkPermissions() {
+    override fun onResume() {
+        super.onResume()
+
+        if (!hasPermissions())
+        {
+            enableEdgeToEdge()
+            setContent {
+                SingSharpTheme {
+                    ConsentScreen(
+                        ::needExtraInstructions,
+                        ::tryStartService,
+                        ::hasPermissions
+                    )
+                }
+            }
+        } else {
+            startService()
+        }
+    }
+
+    private fun needExtraInstructions(): Boolean {
+        return extraInstructions;
+    }
+
+    private fun hasPermissions(): Boolean {
+        return permissions.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        } && Settings.canDrawOverlays(this)
+    }
+
+    private fun requestPermissions() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -69,9 +124,22 @@ class MainActivity : ComponentActivity() {
             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName"))
             overlayPermissionIntentLauncher.launch(intent)
-        } else {
-            startOverlayService()
         }
+    }
+
+    private fun tryStartService() {
+        if (!hasPermissions()) {
+            requestPermissions()
+        }
+        else {
+            startService()
+        }
+    }
+
+    private fun startService() {
+        val intent = Intent(this, SingService::class.java)
+        startService(intent)
+        finish()
     }
 
     private fun createNotificationChannel() {
@@ -85,26 +153,57 @@ class MainActivity : ComponentActivity() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
     }
+}
 
-    private fun startOverlayService() {
-        val intent = Intent(this, SingService::class.java)
-        startService(intent)
-        finish()
+@Composable
+fun ConsentScreen(needExtraInstructions: () -> Boolean, tryStartService: () -> Unit, hasPermissions: () -> Boolean) {
+    if (hasPermissions()) {
+        tryStartService()
     }
-}
 
-@Composable
-fun Greeting(modifier: Modifier = Modifier) {
-    Text(
-        text = "Missing required permissions: require access to microphone, display as overlay, and post notifications",
-        modifier = modifier
-    )
-}
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Requires microphone permission to analyze audio.",
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    SingSharpTheme {
-        Greeting()
+        Text(
+            text = "Requires permission to post notifications to show when Sing Sharp is running and to turn it off.",
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        Text(
+            text = "Requires permission to display as overlay to show in front of other apps.",
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        if (needExtraInstructions()) {
+            Text(
+                text = "Permission to display over other apps was not granted, press Accept again, find Sing Sharp, and toggle \"Allow display over other apps\".",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+        }
+
+        Button(
+            onClick = tryStartService,
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text(text = "Accept")
+        }
     }
 }

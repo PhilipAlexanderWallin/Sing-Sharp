@@ -13,7 +13,7 @@ import android.view.View
 class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     private val sideNotes = 3
-    private var note: Triple<Int, Int, Float>? = null
+    private var note: Triple<Int, Int, Float> = Triple(0, 3, 0f)
     private val textSize: Float = 250f
     private val fillColor: Int = Color.GREEN
     private val strokeColor: Int = Color.BLACK
@@ -93,15 +93,11 @@ class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        if (note == null) {
-            return;
-        }
-
         // Calculate text position
         val x = getCenterX()
         val y = getCenterY()
 
-        note?.let { (noteIndex, octave, centsOffset) ->
+        note.let { (noteIndex, octave, centsOffset) ->
             val noteOffset = (notesDistance * centsOffset) / -100f
 
             for (indexOffset in -sideNotes..sideNotes) {
