@@ -3,8 +3,10 @@ package com.vdproductions.singsharp
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Shader
 import android.util.AttributeSet
 import android.view.View
 
@@ -79,6 +81,15 @@ class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         return arrowPath
     }
 
+    fun setGradient(paint: Paint) {
+        paint.shader = LinearGradient(
+            0f, 0f, width.toFloat(), 0f,
+            intArrayOf(Color.TRANSPARENT, paint.color, paint.color, Color.TRANSPARENT),
+            floatArrayOf(0f, 0.25f, 0.75f, 1f),
+            Shader.TileMode.CLAMP
+        )
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
@@ -120,12 +131,16 @@ class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     }
 
     fun drawOutlinedText(canvas: Canvas, text: String, x: Float, y: Float, fillPaint: Paint, strokePaint: Paint) {
+        setGradient(strokePaint)
         canvas.drawText(text, x, y, strokePaint)
+        setGradient(fillPaint)
         canvas.drawText(text, x, y, fillPaint)
     }
 
     fun drawOutlineLine(canvas: Canvas, startX: Float, startY: Float, endX: Float, endY: Float, fillPaint: Paint, strokePaint: Paint) {
+        setGradient(strokePaint)
         canvas.drawLine(startX, startY, endX, endY, strokePaint)
+        setGradient(fillPaint)
         canvas.drawLine(startX, startY, endX, endY, fillPaint)
     }
 }
