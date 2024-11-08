@@ -28,8 +28,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.vdproductions.singsharp.ui.theme.SingSharpTheme
+import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        var isServiceRunning = false
+    }
+
     private lateinit var overlayPermissionIntentLauncher: ActivityResultLauncher<Intent>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private var extraInstructions = false
@@ -41,6 +46,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (isServiceRunning) {
+            stopService()
+            return
+        }
 
         createNotificationChannel()
 
@@ -140,6 +150,14 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(this, SingService::class.java)
         startService(intent)
         finish()
+        isServiceRunning = true
+    }
+
+    private fun stopService() {
+        val intent = Intent(this, SingService::class.java)
+        stopService(intent)
+        finish()
+        isServiceRunning = false
     }
 
     private fun createNotificationChannel() {

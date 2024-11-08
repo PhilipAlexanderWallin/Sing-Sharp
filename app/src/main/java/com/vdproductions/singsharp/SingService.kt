@@ -161,6 +161,7 @@ class SingService : Service() {
         }
         audioRecord.stop()
         dispatcher.stop()
+        MainActivity.isServiceRunning = false
     }
 
     override fun onBind(intent: Intent?): IBinder? {
