@@ -12,9 +12,13 @@ import android.view.View
 
 class SingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
+    private val screenWidth = resources.displayMetrics.widthPixels;
+    private val screenHeight = resources.displayMetrics.heightPixels;
+    private val largerDimension = screenWidth.coerceAtLeast(screenHeight);
+    private val scaleFactor = resources.displayMetrics.density * largerDimension / 1000;
     private val sideNotes = 3
     private var note: Triple<Int, Int, Float> = Triple(0, 3, 0f)
-    private val textSize: Float = 250f
+    private val textSize: Float = 35 * scaleFactor
     private val fillColor: Int = Color.GREEN
     private val strokeColor: Int = Color.BLACK
     private val noteNames = arrayOf("C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "A", "B")
