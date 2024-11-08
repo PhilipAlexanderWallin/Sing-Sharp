@@ -28,7 +28,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.vdproductions.singsharp.ui.theme.SingSharpTheme
-import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
     companion object {
