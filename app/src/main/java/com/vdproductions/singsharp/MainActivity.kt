@@ -6,9 +6,9 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -36,12 +36,6 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var overlayPermissionIntentLauncher: ActivityResultLauncher<Intent>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
-    private var extraInstructions = false
-
-    val permissions = arrayOf(
-        Manifest.permission.RECORD_AUDIO,
-        Manifest.permission.POST_NOTIFICATIONS
-    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,12 +50,7 @@ class MainActivity : ComponentActivity() {
         overlayPermissionIntentLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
-            Log.d("temp", "a")
-            if (!hasPermissions()) {
-                Log.d("temp", "b")
-                extraInstructions = true
-            }
-            else {
+            if (hasPermissions()) {
                 startService()
             }
         }
@@ -80,7 +69,6 @@ class MainActivity : ComponentActivity() {
             setContent {
                 SingSharpTheme {
                     ConsentScreen(
-                        ::needExtraInstructions,
                         ::tryStartService,
                         ::hasPermissions
                     )
@@ -100,7 +88,6 @@ class MainActivity : ComponentActivity() {
             setContent {
                 SingSharpTheme {
                     ConsentScreen(
-                        ::needExtraInstructions,
                         ::tryStartService,
                         ::hasPermissions
                     )
@@ -111,21 +98,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun needExtraInstructions(): Boolean {
-        return extraInstructions;
+    private fun hasPermissionToPostNotifications(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return true
+        }
+
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun hasPermissions(): Boolean {
-        return permissions.all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        } && Settings.canDrawOverlays(this)
+        val hasRecordPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val hasPostNotificationsPermission = hasPermissionToPostNotifications()
+        val hasDrawOverlayPermission = Settings.canDrawOverlays(this)
+        return hasRecordPermission && hasPostNotificationsPermission && hasDrawOverlayPermission
     }
 
     private fun requestPermissions() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
-        else if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasPermissionToPostNotifications())
         {
             permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -173,7 +165,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ConsentScreen(needExtraInstructions: () -> Boolean, tryStartService: () -> Unit, hasPermissions: () -> Boolean) {
+fun ConsentScreen(tryStartService: () -> Unit, hasPermissions: () -> Boolean) {
     if (hasPermissions()) {
         tryStartService()
     }
@@ -192,29 +184,21 @@ fun ConsentScreen(needExtraInstructions: () -> Boolean, tryStartService: () -> U
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        Text(
-            text = "Requires permission to post notifications to show when Sing Sharp is running and to turn it off.",
-            style = MaterialTheme.typography.labelMedium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
-        Text(
-            text = "Requires permission to display as overlay to show in front of other apps.",
-            style = MaterialTheme.typography.labelMedium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
-        if (needExtraInstructions()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ) {
             Text(
-                text = "Permission to display over other apps was not granted, press Accept again, find Sing Sharp, and toggle \"Allow display over other apps\".",
+                text = "Requires permission to post notifications to show when Sing Sharp is running and to turn it off.",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
         }
+
+        Text(
+            text = "Requires permission to display in front of other apps. After pressing \"Accept\" toggle \"Allow display over other apps\" for Sing Sharp.",
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
 
         Button(
             onClick = tryStartService,
