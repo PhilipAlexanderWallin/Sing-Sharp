@@ -5,16 +5,19 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.AudioRecord.RECORDSTATE_RECORDING
 import android.media.MediaRecorder
+import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.lifecycle.ViewModelProvider
 import be.tarsos.dsp.AudioDispatcher
 import be.tarsos.dsp.AudioEvent
@@ -46,14 +49,6 @@ class SingService : Service() {
                 return START_NOT_STICKY
             }
         }
-        return START_STICKY
-    }
-
-    override fun onCreate() {
-        super.onCreate()
-
-        singViewModel = ViewModelProvider.AndroidViewModelFactory.getInstance(application).create(
-            SingViewModel::class.java)
 
         val pendingIntent = createStopServiceIntent()
 
@@ -65,7 +60,20 @@ class SingService : Service() {
             .setContentIntent(pendingIntent) // Set the pending intent to stop the service
             .build()
 
-        startForeground(1, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            ServiceCompat.startForeground(this, 1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+        } else {
+            startForeground(1, notification)
+        }
+
+        return START_STICKY
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+
+        singViewModel = ViewModelProvider.AndroidViewModelFactory.getInstance(application).create(
+            SingViewModel::class.java)
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
@@ -81,10 +89,6 @@ class SingService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         )
-
-        params.gravity = Gravity.TOP or Gravity.START
-        params.x = 0
-        params.y = 100 // Change this value to set the initial position
 
         // Add the view to the window
         windowManager.addView(singView, params)

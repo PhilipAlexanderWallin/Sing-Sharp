@@ -139,7 +139,7 @@ class MainActivity : ComponentActivity() {
 
     private fun startService() {
         val intent = Intent(this, SingService::class.java)
-        startService(intent)
+        ContextCompat.startForegroundService(this, intent)
         finish()
         isServiceRunning = true
     }
