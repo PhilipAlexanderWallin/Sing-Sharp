@@ -3,7 +3,10 @@ package com.vdproductions.singsharp
 import android.Manifest
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
@@ -13,7 +16,6 @@ import android.media.AudioRecord.RECORDSTATE_RECORDING
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
-import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -40,7 +42,27 @@ class SingService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var singView: SingView
     private lateinit var dispatcher: AudioDispatcher
+    private lateinit var screenReceiver: ScreenReceiver
     private lateinit var audioRecord: AudioRecord
+
+    val sampleRate = 44100
+    val bufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+    val buffer = ByteArray(bufferSize)
+    val pipedInputStream = PipedInputStream()
+    val pipedOutputStream = PipedOutputStream(pipedInputStream)
+
+    inner class ScreenReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    audioRecord.stop()
+                }
+                Intent.ACTION_USER_PRESENT  -> {
+                    audioRecord.startRecording()
+                }
+            }
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -93,9 +115,6 @@ class SingService : Service() {
         // Add the view to the window
         windowManager.addView(singView, params)
 
-        val sampleRate = 44100
-        val bufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-
         if (ActivityCompat.checkSelfPermission(
                 this,
                 Manifest.permission.RECORD_AUDIO
@@ -113,9 +132,7 @@ class SingService : Service() {
             bufferSize
         )
 
-        val buffer = ByteArray(bufferSize)
-        val pipedInputStream = PipedInputStream()
-        val pipedOutputStream = PipedOutputStream(pipedInputStream)
+        audioRecord.startRecording()
 
         dispatcher = AudioDispatcher(UniversalAudioInputStream(pipedInputStream,
             TarsosDSPAudioFormat(sampleRate.toFloat(), 16, 1, true, false)), bufferSize, bufferSize / 2)
@@ -137,17 +154,24 @@ class SingService : Service() {
 
         Thread(dispatcher, "Audio dispatching").start()
 
-        audioRecord.startRecording()
+        screenReceiver = ScreenReceiver()
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF).apply {
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        registerReceiver(screenReceiver, filter)
 
         Thread {
-            while (audioRecord.recordingState == RECORDSTATE_RECORDING) {
-                val read = audioRecord.read(buffer, 0, buffer.size)
-                if (read > 0) {
-                    pipedOutputStream.write(buffer, 0, read)
+            while (MainActivity.isServiceRunning) {
+                if (audioRecord.recordingState == RECORDSTATE_RECORDING) {
+                    val read = audioRecord.read(buffer, 0, buffer.size)
+                    if (read > 0) {
+                        pipedOutputStream.write(buffer, 0, read)
+                    }
+                }
+                else {
+                    Thread.sleep(100)
                 }
             }
-            audioRecord.release()
-            pipedOutputStream.close()
         }.start()
     }
 
@@ -163,8 +187,10 @@ class SingService : Service() {
         if (::singView.isInitialized) {
             windowManager.removeView(singView)
         }
-        audioRecord.stop()
+        unregisterReceiver(screenReceiver);
+        audioRecord.release()
         dispatcher.stop()
+        pipedOutputStream.close()
         MainActivity.isServiceRunning = false
     }
 
