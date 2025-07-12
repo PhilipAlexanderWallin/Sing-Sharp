@@ -6,14 +6,14 @@ plugins {
 
 android {
     namespace = "com.vdproductions.singsharp"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.vdproductions.singsharp"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 2
-        versionName = "1.0"
+        targetSdk = 36
+        versionCode = 3
+        versionName = "1.0.1"
     }
 
     buildTypes {
