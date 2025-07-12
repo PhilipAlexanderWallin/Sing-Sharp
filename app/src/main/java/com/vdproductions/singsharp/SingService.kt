@@ -16,6 +16,7 @@ import android.media.AudioRecord.RECORDSTATE_RECORDING
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -45,11 +46,11 @@ class SingService : Service() {
     private lateinit var screenReceiver: ScreenReceiver
     private lateinit var audioRecord: AudioRecord
 
-    val sampleRate = 44100
-    val bufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-    val buffer = ByteArray(bufferSize)
-    val pipedInputStream = PipedInputStream()
-    val pipedOutputStream = PipedOutputStream(pipedInputStream)
+    private val sampleRate = 44100
+    private val bufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+    private val buffer = ByteArray(bufferSize)
+    private val pipedInputStream = PipedInputStream()
+    private val pipedOutputStream = PipedOutputStream(pipedInputStream)
 
     inner class ScreenReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -160,6 +161,8 @@ class SingService : Service() {
         }
         registerReceiver(screenReceiver, filter)
 
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager;
+
         Thread {
             while (MainActivity.isServiceRunning) {
                 if (audioRecord.recordingState == RECORDSTATE_RECORDING) {
@@ -169,7 +172,10 @@ class SingService : Service() {
                     }
                 }
                 else {
-                    Thread.sleep(100)
+                    Thread.sleep(1000)
+                    if (pm.isInteractive) {
+                        audioRecord.startRecording()
+                    }
                 }
             }
         }.start()
